@@ -3,7 +3,9 @@ package stanislav.trifonov.textrank;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,14 +46,16 @@ public class TextRank {
 			}
 		}
 		
-		for(int i=6; i</*_weight.length*/7; ++i) {
-			System.out.print((i+3) + ": ");
-			for(int j=0; j<_weight[i].length; ++j) {
-				System.out.print(String.format("%.2g\t", _weight[i][j]));
-			}
-			
-			System.out.println("");
-		}
+//		for(int i=0; i<_weight.length; ++i) {
+//			System.out.print((i+3) + ": ");
+//			for(int j=0; j<_weight[i].length; ++j) {
+//				System.out.print(String.format("%.2g\t", _weight[i][j]));
+//			}
+//			
+//			System.out.println("");
+//		}
+//		for(int i=0; i<_sentences.size(); ++i)
+//			System.out.println(String.format("%.2f: ", _weight[6][i]) + _sentences.get(i));
 		
 		float scores[] = new float[_sentences.size()];
 		for (int i = 0; i < scores.length; i++)
@@ -61,7 +65,8 @@ public class TextRank {
 		float errorRate = Float.MAX_VALUE;
 		float vertexOutWeights = 0f;
 		
-		while(errorRate > ERROR_RATE_THRESHOLD || errorRate < (-ERROR_RATE_THRESHOLD)) {
+		
+		while(isErrorRateAboveThreshold(errorRate)) {
 			for(int i=0; i<_sentences.size(); ++i) {
 				score = 0f;
 				for(int j=0; j<_sentences.size(); ++j) {
@@ -75,8 +80,10 @@ public class TextRank {
 				}
 				
 				score = score*DAMPING_FACTOR + (1-DAMPING_FACTOR);
-				errorRate = scores[i] - score;
+				errorRate = score - scores[i];
 				scores[i] = score;
+				if( !isErrorRateAboveThreshold(errorRate) )
+					break;
 			}
 		}
 		
@@ -99,7 +106,7 @@ public class TextRank {
 				valueOf(Math.ceil(indices.length*summarySize/100.0)).
 				intValue();
 		List<String> summary = new ArrayList<String>();
-		for (int i=indices.length-1; i>=/*indices.length-numberOfSentencesInSummary*/0; i--) {
+		for (int i=indices.length-1; i>=indices.length-numberOfSentencesInSummary; i--) {
 			System.out.println(scores[indices[i]] + " for " + _sentences.get(indices[i]));
 			summary.add( _sentences.get(indices[i]) );
 		}
@@ -116,16 +123,24 @@ public class TextRank {
 		String words1[] = wordsInSentence(sentence1);
 		String words2[] = wordsInSentence(sentence2);
 		
-		int commonWordsCount = 0;
+		Set<String> commonWords = new HashSet<String>();
+		
 		for(int i=0; i<words1.length; ++i) {
+			if(commonWords.contains(words1[i]))
+				continue;
+			
 			for(int j=0; j<words2.length; ++j) {
-				if(words1[i].equals(words2[j]))
-					++commonWordsCount;
+				if(words1[i].equals(words2[j])) {
+					commonWords.add(words1[i]);
+					break;
+				}
 			}
 		}
 		
-		return commonWordsCount /
-				(float)(Math.log(words1.length) + Math.log(words2.length));
+		float count = commonWords.size();
+		double logSi = Math.log10( Integer.valueOf(words1.length).doubleValue() );
+		double logSj = Math.log10( Integer.valueOf(words2.length).doubleValue() );
+		return  count / Double.valueOf( logSi + logSj ).floatValue();
 	}
 	
 	
@@ -141,5 +156,9 @@ public class TextRank {
 		}
 		
 		return words.toArray( new String[words.size()] );
+	}
+	
+	protected boolean isErrorRateAboveThreshold(float errorRate) {
+		return errorRate > ERROR_RATE_THRESHOLD || errorRate < (-ERROR_RATE_THRESHOLD);		
 	}
 }
